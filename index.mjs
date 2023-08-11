@@ -5,9 +5,13 @@
 // ╚██╗ ██╔╝██║   ██║██║██║     ██╔══╝      ██║     ██║   ██║██║╚██╗██║   ██║   ██╔══██╗██║   ██║██║
 //  ╚████╔╝ ╚██████╔╝██║╚██████╗███████╗    ╚██████╗╚██████╔╝██║ ╚████║   ██║   ██║  ██║╚██████╔╝███████╗
 //   ╚═══╝   ╚═════╝ ╚═╝ ╚═════╝╚══════╝     ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
-// NOTE Deps:
+// Deps:
+// NOTE hue cli
 // https://github.com/bahamas10/hue-cli
 // npm i -g hue-cli
+// NOTE Kodi cli
+// https://github.com/JavaWiz1/kodi-cli
+// sudo aura -A kodi-cli-git
 
 import vosk from 'vosk';
 import fs from 'fs';
@@ -27,6 +31,32 @@ const MODEL_PATH = "model";
 const SAMPLE_RATE = 16000;
 const DEBUG_LOG = true;
 const USING_HUE = true;
+const USING_KODI = true;
+
+
+// ┬┌─┌─┐┌┬┐┬  ┬ ┬┌─┐┌┐┌┌┬┐┬  ┌─┐┬─┐
+// ├┴┐│ │ │││  ├─┤├─┤│││ │││  ├┤ ├┬┘
+// ┴ ┴└─┘─┴┘┴  ┴ ┴┴ ┴┘└┘─┴┘┴─┘└─┘┴└─
+
+const pauseKodi = async () => await spawner('kodi-cli' ['-p']);
+
+const kodiActions = {
+  "pause": pauseKodi,
+  "pose": pauseKodi
+};
+
+const kodiHandler = async (words) => {
+  if (!words.length) return;
+  const scores = extract(words, Object.keys(kodiActions), { scorer: token_set_ratio, returnObjects: true });
+  deblog('KODI'.green, words.cyan, scores.filter(noLowScores(25)).map(toTuple));
+
+  const [mostLikely] = scores;
+  if (mostLikely.score < 75) return;
+
+  const action = kodiActions[mostLikely.choice];
+  if (action) await action(words);
+};
+
 
 // ┬  ┬┌─┐┬ ┬┌┬┐┌─┐  ┬ ┬┌─┐┌┐┌┌┬┐┬  ┌─┐┬─┐
 // │  ││ ┬├─┤ │ └─┐  ├─┤├─┤│││ │││  ├┤ ├┬┘
@@ -37,9 +67,9 @@ const colors = ['red', 'blue', 'white'];
 
 const changeColor = async (words) => {
   if (!words) return;
-  const result = extract(words, colors, { scorer: token_set_ratio, returnObjects: true });
+  const scores = extract(words, colors, { scorer: token_set_ratio, returnObjects: true });
 
-  const [mostLikely] = result;
+  const [mostLikely] = scores;
   if (mostLikely.score < 75) return;
 
   await spawner('hue', ['lights', '2', mostLikely.choice]);
@@ -56,7 +86,7 @@ const lightsHandler = async (words) => {
   const scores = extract(words, Object.keys(lightsActions), { scorer: token_set_ratio, returnObjects: true });
 
   const [likelyKeyword] = scores;
-  deblog('LIGHTS'.green, scores);
+  deblog('LIGHTS'.green, words.cyan, scores.filter(noLowScores(25)).map(toTuple));
   if (likelyKeyword.score < 75) return;
 
   const action = lightsActions[likelyKeyword.choice];
@@ -70,18 +100,22 @@ const lightsHandler = async (words) => {
 
 const PRIMARY_KEYWORD_HANDLERS = {
   ...(USING_HUE ? { "lights": lightsHandler, "hue": lightsHandler } : {}),
+  ...(USING_KODI ? { "kodi": kodiHandler, "cody": kodiHandler } : {})
 };
 
 const keywordOptions = { scorer: token_set_ratio, returnObjects: true };
 const keywordChoices = Object.keys(PRIMARY_KEYWORD_HANDLERS);
 
-const handler = async ({ text }) => {
+const handler = async ({ text, partial }) => {
+  if (!text) text = partial;
+  if (!text) return;
+
   const [keyword, ...rest] = text.split(' ');
   if (!keyword.length) return;
 
   const scores = extract(keyword, keywordChoices, keywordOptions);
   const [likelyKeyword] = scores;
-  deblog('KEYWORD'.green, scores);
+  deblog('KEYWORD'.green, keyword.cyan, scores.filter(noLowScores(25)).map(toTuple));
   if (likelyKeyword.score < 75) return;
 
   const keywordHandler = PRIMARY_KEYWORD_HANDLERS[likelyKeyword.choice];
@@ -125,7 +159,10 @@ const setup = async () => {
 
   micInputStream.on('data', async (data) => {
     if (rec.acceptWaveform(data)) await handler(rec.result());
-    // else console.log(rec.partialResult());
+    // TODO You could also try partial results
+    // But would need to notify match levels or some shit
+    // To not overly spam it
+    else if (false) await handler(rec.partialResult());
   });
 
   process.on('SIGINT', function() {
@@ -161,3 +198,5 @@ const bail = (errorMessage) => {
 };
 
 const deblog = (...args) => DEBUG_LOG && console.log(...args);
+const noLowScores = (minScore) => ({ score }) => score > minScore;
+const toTuple = ({ choice, score }) => [choice, score];
