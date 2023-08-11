@@ -7,7 +7,7 @@ const MODEL_PATH = "model";
 const SAMPLE_RATE = 16000;
 
 if (!fs.existsSync(MODEL_PATH)) {
-  console.error("Please download the model from https://alphacephei.com/vosk/models and unpack as " + MODEL_PATH + " in the current folder.");
+  console.error(`Please download a model from https://alphacephei.com/vosk/models and unpack to folder ${MODEL_PATH} in the root folder.`);
   process.exit();
 }
 
