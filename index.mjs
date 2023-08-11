@@ -25,6 +25,7 @@ import 'colors';
 
 const MODEL_PATH = "model";
 const SAMPLE_RATE = 16000;
+const DEBUG_LOG = true;
 const USING_HUE = true;
 
 // ┬  ┬┌─┐┬ ┬┌┬┐┌─┐  ┬ ┬┌─┐┌┐┌┌┬┐┬  ┌─┐┬─┐
@@ -32,10 +33,22 @@ const USING_HUE = true;
 // ┴─┘┴└─┘┴ ┴ ┴ └─┘  ┴ ┴┴ ┴┘└┘─┴┘┴─┘└─┘┴└─
 
 const CURRENT_LAMP = 'guļam istabas lampa';
+const colors = ['red', 'blue', 'white'];
+
+const changeColor = async (words) => {
+  if (!words) return;
+  const result = extract(words, colors, { scorer: token_set_ratio, returnObjects: true });
+
+  const [mostLikely] = result;
+  if (mostLikely.score < 75) return;
+
+  await spawner('hue', ['lights', '2', mostLikely.choice]);
+};
 
 const lightsActions = {
   "on": async () => await spawner('hue', ['lights', '2', 'on']),
-  "off": async () => await spawner('hue', ['lights', '2', 'off'])
+  "off": async () => await spawner('hue', ['lights', '2', 'off']),
+  "color": async (words) => await changeColor(words)
 };
 
 const lightsHandler = async (words) => {
@@ -43,10 +56,11 @@ const lightsHandler = async (words) => {
   const scores = extract(words, Object.keys(lightsActions), { scorer: token_set_ratio, returnObjects: true });
 
   const [likelyKeyword] = scores;
+  deblog('LIGHTS'.green, scores);
   if (likelyKeyword.score < 75) return;
 
   const action = lightsActions[likelyKeyword.choice];
-  if (action) await action();
+  if (action) await action(words);
 };
 
 
@@ -55,7 +69,7 @@ const lightsHandler = async (words) => {
 // ╩ ╩┴ ┴┴┘└┘  ┴ ┴┴ ┴┘└┘─┴┘┴─┘└─┘┴└─
 
 const PRIMARY_KEYWORD_HANDLERS = {
-  ...(USING_HUE ? { "lights": lightsHandler } : {}),
+  ...(USING_HUE ? { "lights": lightsHandler, "hue": lightsHandler } : {}),
 };
 
 const keywordOptions = { scorer: token_set_ratio, returnObjects: true };
@@ -65,7 +79,9 @@ const handler = async ({ text }) => {
   const [keyword, ...rest] = text.split(' ');
   if (!keyword.length) return;
 
-  const [likelyKeyword] = extract(keyword, keywordChoices, keywordOptions);
+  const scores = extract(keyword, keywordChoices, keywordOptions);
+  const [likelyKeyword] = scores;
+  deblog('KEYWORD'.green, scores);
   if (likelyKeyword.score < 75) return;
 
   const keywordHandler = PRIMARY_KEYWORD_HANDLERS[likelyKeyword.choice];
@@ -113,7 +129,6 @@ const setup = async () => {
   });
 
   process.on('SIGINT', function() {
-    console.log(rec.finalResult());
     console.log("\nDone");
     rec.free();
     model.free();
@@ -121,6 +136,7 @@ const setup = async () => {
 };
 
 setImmediate(setup);
+
 
 // ┬ ┬┌┬┐┬┬
 // │ │ │ ││
@@ -143,3 +159,5 @@ const bail = (errorMessage) => {
   console.error('BAILING'.red, errorMessage);
   process.exit();
 };
+
+const deblog = (...args) => DEBUG_LOG && console.log(...args);
