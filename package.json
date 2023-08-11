@@ -6,6 +6,7 @@
   ],
   "dependencies": {
     "colors": "^1.4.0",
-    "vosk": "^0.3.39"
+    "vosk": "^0.3.39",
+    "mic": "git@bky.one:js/mic.git"
   }
 }
