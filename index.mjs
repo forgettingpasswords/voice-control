@@ -1,3 +1,14 @@
+
+// ██╗   ██╗ ██████╗ ██╗ ██████╗███████╗     ██████╗ ██████╗ ███╗   ██╗████████╗██████╗  ██████╗ ██╗
+// ██║   ██║██╔═══██╗██║██╔════╝██╔════╝    ██╔════╝██╔═══██╗████╗  ██║╚══██╔══╝██╔══██╗██╔═══██╗██║
+// ██║   ██║██║   ██║██║██║     █████╗      ██║     ██║   ██║██╔██╗ ██║   ██║   ██████╔╝██║   ██║██║
+// ╚██╗ ██╔╝██║   ██║██║██║     ██╔══╝      ██║     ██║   ██║██║╚██╗██║   ██║   ██╔══██╗██║   ██║██║
+//  ╚████╔╝ ╚██████╔╝██║╚██████╗███████╗    ╚██████╗╚██████╔╝██║ ╚████║   ██║   ██║  ██║╚██████╔╝███████╗
+//   ╚═══╝   ╚═════╝ ╚═╝ ╚═════╝╚══════╝     ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+// NOTE Deps:
+// https://github.com/bahamas10/hue-cli
+// npm i -g hue-cli
+
 import vosk from 'vosk';
 import fs from 'fs';
 import mic from 'mic';
@@ -7,15 +18,21 @@ import { token_set_ratio, extract } from 'fuzzball';
 import { spawn } from 'node:child_process';
 import 'colors';
 
+
+// ┌─┐┌─┐┌┐┌┌─┐┬┌─┐
+// │  │ ││││├┤ ││ ┬
+// └─┘└─┘┘└┘└  ┴└─┘
+
 const MODEL_PATH = "model";
 const SAMPLE_RATE = 16000;
+const USING_HUE = true;
 
-// NOTE Deps:
-// https://github.com/bahamas10/hue-cli
-// npm i -g hue-cli
-
+// ┬  ┬┌─┐┬ ┬┌┬┐┌─┐  ┬ ┬┌─┐┌┐┌┌┬┐┬  ┌─┐┬─┐
+// │  ││ ┬├─┤ │ └─┐  ├─┤├─┤│││ │││  ├┤ ├┬┘
+// ┴─┘┴└─┘┴ ┴ ┴ └─┘  ┴ ┴┴ ┴┘└┘─┴┘┴─┘└─┘┴└─
 
 const CURRENT_LAMP = 'guļam istabas lampa';
+
 const lightsActions = {
   "on": async () => await spawner('hue', ['lights', '2', 'on']),
   "off": async () => await spawner('hue', ['lights', '2', 'off'])
@@ -33,10 +50,13 @@ const lightsHandler = async (words) => {
 };
 
 
-const PRIMARY_KEYWORD_HANDLERS = {
-  "lights": lightsHandler,
-};
+// ╔╦╗┌─┐┬┌┐┌  ┬ ┬┌─┐┌┐┌┌┬┐┬  ┌─┐┬─┐
+// ║║║├─┤││││  ├─┤├─┤│││ │││  ├┤ ├┬┘
+// ╩ ╩┴ ┴┴┘└┘  ┴ ┴┴ ┴┘└┘─┴┘┴─┘└─┘┴└─
 
+const PRIMARY_KEYWORD_HANDLERS = {
+  ...(USING_HUE ? { "lights": lightsHandler } : {}),
+};
 
 const keywordOptions = { scorer: token_set_ratio, returnObjects: true };
 const keywordChoices = Object.keys(PRIMARY_KEYWORD_HANDLERS);
@@ -52,6 +72,9 @@ const handler = async ({ text }) => {
   if (keywordHandler) await keywordHandler(rest.join(' '));
 };
 
+// ┌─┐┌─┐┌┬┐┬ ┬┌─┐
+// └─┐├┤  │ │ │├─┘
+// └─┘└─┘ ┴ └─┘┴
 
 const setupHue = async () => {
   if (!fs.existsSync(`${homedir()}/.hue.json`)) {
@@ -69,7 +92,7 @@ const setup = async () => {
     process.exit();
   }
 
-  await setupHue();
+  if (USING_HUE) await setupHue();
 
   vosk.setLogLevel(0);
   const model = new vosk.Model(MODEL_PATH);
@@ -97,6 +120,12 @@ const setup = async () => {
   });
 };
 
+setImmediate(setup);
+
+// ┬ ┬┌┬┐┬┬
+// │ │ │ ││
+// └─┘ ┴ ┴┴─┘
+
 const spawner = async (...args) => {
   let process = null;
   const promise = new Promise((resolve) => {
@@ -114,5 +143,3 @@ const bail = (errorMessage) => {
   console.error('BAILING'.red, errorMessage);
   process.exit();
 };
-
-setImmediate(setup);
