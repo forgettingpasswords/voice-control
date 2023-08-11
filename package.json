@@ -1,5 +1,11 @@
 {
+  "version": "0.0.1",
+  "author": "bmiww <bmiww@bky.one>",
+  "workspaces": [
+    "packages/*"
+  ],
   "dependencies": {
+    "colors": "^1.4.0",
     "vosk": "^0.3.39"
   }
 }
